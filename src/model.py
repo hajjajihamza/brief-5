@@ -1,5 +1,7 @@
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import f1_score
@@ -10,8 +12,11 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import GlobalAveragePooling2D, Dropout, Dense
 from tensorflow.keras.callbacks import ModelCheckpoint, BackupAndRestore, EarlyStopping
 import mlflow
+from .dataset import create_dataset
+from .const import SIZE_IMAGE, BATCH_SIZE, EPOCHS
+from .visualization import afficher_courbes_apprentissage
 
-def evaluate_model(model, test_ds, model_path ,y_test, name):
+def evaluate_model(model, test_ds, model_path ,y_test, name, label_encoder):
     # Predire les probabilites sur le dataset de test
     y_pred_probs = model.predict(test_ds, verbose=0) # Probabiliter sur les 4 classes
     # print(y_pred_probs[0])
@@ -96,7 +101,7 @@ def evaluate_model(model, test_ds, model_path ,y_test, name):
     )
 
 
-def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val, y_val, x_test,y_test):
+def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val, y_val, x_test,y_test,data_augmentation):
     # Charger le modele pre-entraine
     base = base_model(
         weights='imagenet', # loader les weights of train imagenet

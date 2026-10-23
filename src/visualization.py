@@ -1,3 +1,10 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import cv2
+import tensorflow as tf
+from .const import SIZE_IMAGE
+
 def afficher_images_echntillon(images, labels):
     classes = np.unique(labels)
     _, axes = plt.subplots(len(classes), 3)
@@ -23,7 +30,7 @@ def afficher_distribution_classes(labels):
     plt.show()
 
 
-def afficher_images_augmentation(image_path):
+def afficher_images_augmentation(image_path, data_augmentation):
     # Loader l'image avec OpenCV et converter à RGB
     image = cv2.imread(image_path)
 

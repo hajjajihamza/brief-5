@@ -1,10 +1,5 @@
 import tensorflow as tf
-
-RANDOM_KEY=26
-SIZE_IMAGE=224
-BATCH_SIZE = 45
-EPOCHS = 10
-AUTOTUNE = tf.data.AUTOTUNE
+from .const import RANDOM_KEY, SIZE_IMAGE, BATCH_SIZE, AUTOTUNE
 
 # Create dataset avec params
 def create_dataset(x_data, y_data, normalize_collback, is_use_shuffle = False):

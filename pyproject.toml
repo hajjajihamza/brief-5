@@ -1,4 +1,4 @@
-[project]
+           [project]
 name = "brief-5"
 version = "0.1.0"
 requires-python = ">=3.12"
@@ -10,5 +10,6 @@ dependencies = [
     "opencv-python>=5.0.0.93",
     "scikit-learn>=1.9.1",
     "seaborn>=0.13.2",
+    "streamlit>=1.65.0",
     "tensorflow>=2.21.0",
 ]

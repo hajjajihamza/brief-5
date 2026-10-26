@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import re
 
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import f1_score
@@ -12,6 +13,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import GlobalAveragePooling2D, Dropout, Dense
 from tensorflow.keras.callbacks import ModelCheckpoint, BackupAndRestore, EarlyStopping
 import mlflow
+from mlflow import MlflowClient
 from .dataset import create_dataset
 from .const import SIZE_IMAGE, BATCH_SIZE, EPOCHS, EARLY_STOPPING_PATIENCE
 from .visualization import afficher_courbes_apprentissage
@@ -61,7 +63,6 @@ def evaluate_model(model, test_ds, model_path ,y_test, name, label_encoder):
     display.plot(cmap="Blues", xticks_rotation=45)
     plt.title("Matrice de confusion")
     plt.tight_layout()
-    plt.show()
 
     # Sauvegarder l'image
     cm_path = f"{model_path}/confusion_matrix.png"
@@ -69,6 +70,8 @@ def evaluate_model(model, test_ds, model_path ,y_test, name, label_encoder):
 
     # Enregistrer dans MLflow comme artifact
     mlflow.log_artifact(cm_path, artifact_path="evaluation")
+
+    plt.show()
 
     # ================= RAPPORT DE CLASSIFICATION =================
     # Generer le rapport
@@ -97,12 +100,12 @@ def evaluate_model(model, test_ds, model_path ,y_test, name, label_encoder):
     # ================= ENREGISTREMENT MLFLOW =================
     mlflow.tensorflow.log_model(
         model=model,
-        artifact_path="model",
+        name=name,
         registered_model_name=name
     )
 
-
-def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val, y_val, x_test,y_test,data_augmentation, label_encoder):
+    
+def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val, y_val, x_test,y_test, data_augmentation, label_encoder):
     # Charger le modele pre-entraine
     base = base_model(
         weights='imagenet', # loader les weights of train imagenet
@@ -121,7 +124,9 @@ def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val
     test_ds = create_dataset(x_test, y_test, normalize_collback)
 
     # ================= DOSSIER =================
-    model_path = f"models/{base.name}"
+    model_name = re.sub(r'[/:.%"\']', '_', base.name)
+
+    model_path = f"../output/models/{model_name}"
     Path(model_path).mkdir(parents=True, exist_ok=True)
 
     # ================= TRANSFER LEARNING (Inference) =================
@@ -130,10 +135,10 @@ def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val
 
     # Architecture Sequential
     model = Sequential([
-        base, # Extraire les caractéristiques en mode inference
-
         # Appliquer augmentation
         data_augmentation,
+
+        base, # Extraire les caractéristiques en mode inference
 
         GlobalAveragePooling2D(), # minimizer les Featurs Map à vectore 
 
@@ -180,12 +185,9 @@ def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val
 
     # ================= RUN 1 : TRANSFER LEARNING =================
 
-    with mlflow.start_run(run_name=f"{base.name}_feature_extraction"):
-        
-        mlflow.set_tag("training_stage", "transfer_learning")
-
+    with mlflow.start_run(run_name=f"{model_name}_feature_extraction"):
         mlflow.log_params({
-            "base_model": base.name,
+            "base_model": model_name,
             "batch_size": BATCH_SIZE,
             "epochs": EPOCHS,
             "image_size": SIZE_IMAGE,
@@ -207,12 +209,12 @@ def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val
         train_time = time.time() - start_time
 
         # Enregistrer les mtrics
-        mlflow.log_metric("training_duration_TL_seconds", train_time)
+        mlflow.log_metric("training_duration_seconds", train_time)
 
         print(f"Temps d'entraînement en Trensfor learning : {train_time / 60:.2f} minute")
 
         # ================= EVALUATION =================
-        evaluate_model(model, test_ds, model_path, y_test, base.name, label_encoder)
+        evaluate_model(model, test_ds, model_path, y_test, f"{model_name}_transfer_learning", label_encoder)
 
         # ================= COURBES =================
         afficher_courbes_apprentissage(trensfoer_history.history)
@@ -261,12 +263,9 @@ def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val
     ]
 
     # ================= RUN 2 : FINE-TUNING =================
-    with mlflow.start_run(run_name=f"{base.name}_fine_tuning"):
-
-        mlflow.set_tag("training_stage", "fine_tuning")
-
+    with mlflow.start_run(run_name=f"{model_name}_fine_tuning"):
         mlflow.log_params({
-            "base_model": base.name,
+            "base_model": model_name,
             "batch_size": BATCH_SIZE,
             "epochs": EPOCHS,
             "image_size": SIZE_IMAGE,
@@ -290,17 +289,17 @@ def build_transfer_model(base_model, normalize_collback, x_train, y_train, x_val
         train_time = time.time() - start_time
 
         # Enregistrer les mtrics
-        mlflow.log_metric("training_duration_FT_seconds", train_time)
+        mlflow.log_metric("training_duration_seconds", train_time)
         
         print(f"Temps d'entraînement en Fine tuning : {train_time / 60:.2f} minute")
 
         # ================= EVALUATION =================
-        evaluate_model(model, test_ds, model_path, y_test, base.name, label_encoder)
+        evaluate_model(model, test_ds, model_path, y_test, f"{model_name}_fine_tuning", label_encoder)
 
         # ================= COURBES =================
         afficher_courbes_apprentissage(fine_tuning_history.history)
 
-
+        
 def build_cnn_model(x_train, y_train, x_val, y_val, x_test,y_test, data_augmentation, label_encoder):
     normalize_collback = lambda image: image / 255
     # ================= DATASETS =================
@@ -319,7 +318,7 @@ def build_cnn_model(x_train, y_train, x_val, y_val, x_test,y_test, data_augmenta
     test_ds = create_dataset(x_test, y_test, normalize_collback)
 
     # ================= DOSSIER =================
-    model_path = f"output/models/cnn"
+    model_path = f"../output/models/cnn"
     Path(model_path).mkdir(parents=True, exist_ok=True)
 
     # Architecture Sequential
@@ -420,7 +419,7 @@ def build_cnn_model(x_train, y_train, x_val, y_val, x_test,y_test, data_augmenta
         train_time = time.time() - start_time
 
         # Enregistrer les mtrics
-        mlflow.log_metric("training_duration_CNN_seconds", train_time)
+        mlflow.log_metric("training_duration_seconds", train_time)
 
         print(f"Temps d'entraînement en CNN learning : {train_time / 60:.2f} minute")
 
@@ -429,6 +428,15 @@ def build_cnn_model(x_train, y_train, x_val, y_val, x_test,y_test, data_augmenta
 
         # ================= COURBES =================
         afficher_courbes_apprentissage(cnn_history.history)
+
+
+def set_model_alias(model_name, model_version, alias="champion"):
+    client = MlflowClient()
+    client.set_registered_model_alias(
+        name=model_name,
+        alias=alias,
+        version=model_version
+    )
 
 
 def predict_image(model, image_path, normalize_collback, label_encoder):

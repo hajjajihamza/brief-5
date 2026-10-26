@@ -1,0 +1,33 @@
+# 1 - generate SSH key public et afficher 
+    ssh-keygen -t ed25519 -C "vast vscode"
+    cat ~/.ssh/id_ed25519.pub
+
+# 2 - Utiliser Remote SSH pour connecter à machin VM avec vscode
+
+# 3 - Entrer ou crer le dosser workspace 
+    mkdir -p ~/workspace
+    cd ~/workspace
+
+# 4 - Cloner le project avec git 
+    git clone https://github.com/hajjajihamza/brief-5.git
+
+# 5 - Installer uv sur machin VM
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    source "$HOME/.local/bin/env"
+    uv --version
+
+# 6 - sync project avec uv
+    uv sync
+
+# 7 - Pour rniner mlflow sur MV
+    uv run mlflow ui \
+  --backend-store-uri "sqlite:///$(pwd)/mlflow/mlflow.db" \
+  --artifacts-destination "$(pwd)/mlflow/artifacts" \
+  --host 0.0.0.0 \
+  --port 5000 \
+  --allowed-hosts "flower-debut-counting-pee.trycloudflare.com" \
+  --cors-allowed-origins "https://flower-debut-counting-pee.trycloudflare.com"
+
+# 8 - Push chnages
+    git config user.name "HAJJAJI Hamza"
+    git config user.email "hajjajihamza05@gmail.com"

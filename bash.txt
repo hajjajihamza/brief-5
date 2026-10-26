@@ -31,3 +31,8 @@
 # 8 - Push chnages
     git config user.name "HAJJAJI Hamza"
     git config user.email "hajjajihamza05@gmail.com"
+    git -c credential.helper= push origin HEAD
+    et enterusername et token
+
+# 9 -pour run straomleat
+    PYTHONPATH=. uv run streamlit run app/main.py

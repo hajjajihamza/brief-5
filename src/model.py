@@ -439,6 +439,7 @@ def set_model_alias(model_name, model_version, alias="champion"):
     )
 
 
+
 def predict_image(model, image_path, normalize_collback, label_encoder):
     image_path = Path(image_path)
 
@@ -454,21 +455,40 @@ def predict_image(model, image_path, normalize_collback, label_encoder):
     if image_path.suffix.lower() not in extention_allow:
         raise ValueError("Format d'image non autorisé.")
 
-    image, _ = load_image(str(image_path), '', normalize_collback)
+    # Charger et prétraiter l'image
+    image, _ = load_image(
+        str(image_path),
+        '',
+        normalize_collback
+    )
 
     # Ajouter la dimension batch
     image = np.expand_dims(image, axis=0)
 
-    # Prédiction
-    probabilities = model.predict(image, verbose=0)
+    # Prédiction : shape attendue (1, nombre_classes)
+    predictions = model.predict(image, verbose=0)
+
+    # Récupérer les probabilités de la première image
+    probabilities = np.asarray(predictions)[0]
+
+    # Vérifier le nombre de classes
+    if len(probabilities) != len(label_encoder.classes_):
+        raise ValueError(
+            f"Nombre de probabilités ({len(probabilities)}) "
+            f"différent du nombre de classes "
+            f"({len(label_encoder.classes_)})."
+        )
 
     # Index de la classe prédite
     predicted_index = int(np.argmax(probabilities))
 
     # Index vers nom de classe
-    predicted_class = label_encoder.inverse_transform([predicted_index])[0] # Parce que inverse_transform retourne un tableau
+    predicted_class = label_encoder.inverse_transform(
+        [predicted_index]
+    )[0]
 
     # Probabilité maximale
     confidence = float(probabilities[predicted_index])
 
     return predicted_class, confidence, probabilities
+
